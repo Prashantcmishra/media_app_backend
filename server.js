@@ -13,18 +13,24 @@ const app = express();
 connectDB();
 
 // Allow multiple comma-separated origins (useful when testing from phone + laptop)
+const normalizeOrigin = (o) => o.trim().replace(/\/+$/, ""); // trim whitespace + strip trailing slash(es)
+
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((o) => o.trim());
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
+console.log("CORS allowed origins:", allowedOrigins);
 
 app.use(
   cors({
     origin: function (origin, callback) {
       // allow requests with no origin (mobile apps, curl, Postman)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS: " + origin));
+        console.warn("Blocked by CORS ->", JSON.stringify(origin), "| Allowed:", allowedOrigins);
+        callback(null, false); // reject the CORS headers instead of throwing -> avoids a 500
       }
     },
   })
