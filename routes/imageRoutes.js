@@ -2,6 +2,7 @@ const express = require("express");
 const protect = require("../middleware/auth");
 const { uploadImage } = require("../middleware/upload");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
+const cloudinary = require("../config/cloudinary");
 const Image = require("../models/Image");
 
 const router = express.Router();
@@ -35,6 +36,23 @@ router.post("/upload", protect, uploadImage.single("file"), async (req, res) => 
     res.status(201).json(newImage);
   } catch (err) {
     res.status(500).json({ message: "Image upload failed", error: err.message });
+  }
+});
+
+// DELETE /api/images/:id - delete image from Cloudinary + DB (protected)
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.id);
+    if (!image) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    await cloudinary.uploader.destroy(image.publicId, { resource_type: "image" });
+    await image.deleteOne();
+
+    res.status(200).json({ message: "Image deleted", id: req.params.id });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to delete image", error: err.message });
   }
 });
 

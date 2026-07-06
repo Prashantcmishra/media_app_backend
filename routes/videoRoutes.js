@@ -2,6 +2,7 @@ const express = require("express");
 const protect = require("../middleware/auth");
 const { uploadVideo } = require("../middleware/upload");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
+const cloudinary = require("../config/cloudinary");
 const Video = require("../models/Video");
 
 const router = express.Router();
@@ -35,6 +36,23 @@ router.post("/upload", protect, uploadVideo.single("file"), async (req, res) => 
     res.status(201).json(newVideo);
   } catch (err) {
     res.status(500).json({ message: "Video upload failed", error: err.message });
+  }
+});
+
+// DELETE /api/videos/:id - delete video from Cloudinary + DB (protected)
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    await cloudinary.uploader.destroy(video.publicId, { resource_type: "video" });
+    await video.deleteOne();
+
+    res.status(200).json({ message: "Video deleted", id: req.params.id });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to delete video", error: err.message });
   }
 });
 
