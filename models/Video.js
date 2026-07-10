@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const reactionSchema = new mongoose.Schema(
   {
-    emoji: { type: String, required: true },
+    emoji: { type: String, default: "" },
     comment: { type: String, default: "", maxlength: 200 },
     username: { type: String, required: true },
   },

@@ -66,15 +66,20 @@ router.delete("/:id", protect, async (req, res) => {
   }
 });
 
-// POST /api/images/:id/react - add an emoji reaction + optional short comment (protected)
+// POST /api/images/:id/react - add an emoji reaction, a comment, or both (protected)
 const ALLOWED_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
 router.post("/:id/react", protect, async (req, res) => {
   try {
     const { emoji, comment } = req.body;
+    const trimmedComment = (comment || "").trim().slice(0, 200);
 
-    if (!emoji || !ALLOWED_EMOJIS.includes(emoji)) {
-      return res.status(400).json({ message: "Invalid or missing emoji" });
+    if (!emoji && !trimmedComment) {
+      return res.status(400).json({ message: "Provide a reaction, a comment, or both" });
+    }
+
+    if (emoji && !ALLOWED_EMOJIS.includes(emoji)) {
+      return res.status(400).json({ message: "Invalid emoji" });
     }
 
     const image = await Image.findById(req.params.id);
@@ -90,8 +95,8 @@ router.post("/:id/react", protect, async (req, res) => {
     }
 
     const reaction = {
-      emoji,
-      comment: (comment || "").slice(0, 200),
+      emoji: emoji || "",
+      comment: trimmedComment,
       username: req.user.username,
     };
 
