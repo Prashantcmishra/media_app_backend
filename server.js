@@ -6,6 +6,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const imageRoutes = require("./routes/imageRoutes");
 const videoRoutes = require("./routes/videoRoutes");
+const announcementRoutes = require("./routes/announcementRoutes");
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/images", imageRoutes);
 app.use("/api/videos", videoRoutes);
+app.use("/api/announcement", announcementRoutes);
 
 // Multer / general error handler
 app.use((err, req, res, next) => {
