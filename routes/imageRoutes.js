@@ -4,13 +4,19 @@ const { uploadImage } = require("../middleware/upload");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
 const cloudinary = require("../config/cloudinary");
 const Image = require("../models/Image");
+const { getPeerUsernames } = require("../config/users");
 
 const router = express.Router();
 
-// GET /api/images - fetch all images from DB (protected)
+// GET /api/images - fetch images from DB (protected)
+// Admin sees everyone's images. A "user" role account sees the SHARED pool
+// uploaded by any "user" role account (e.g. user1 and user2 see each other's uploads),
+// but not admin's own uploads.
 router.get("/", protect, async (req, res) => {
   try {
-    const images = await Image.find().sort({ createdAt: -1 });
+    const filter =
+      req.user.role === "admin" ? {} : { uploadedBy: { $in: getPeerUsernames() } };
+    const images = await Image.find(filter).sort({ createdAt: -1 });
     res.status(200).json(images);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch images", error: err.message });
@@ -47,12 +53,54 @@ router.delete("/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "Image not found" });
     }
 
+    if (req.user.role !== "admin" && image.uploadedBy !== req.user.username) {
+      return res.status(403).json({ message: "You can only delete your own images" });
+    }
+
     await cloudinary.uploader.destroy(image.publicId, { resource_type: "image" });
     await image.deleteOne();
 
     res.status(200).json({ message: "Image deleted", id: req.params.id });
   } catch (err) {
     res.status(500).json({ message: "Failed to delete image", error: err.message });
+  }
+});
+
+// POST /api/images/:id/react - add an emoji reaction + optional short comment (protected)
+const ALLOWED_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+
+router.post("/:id/react", protect, async (req, res) => {
+  try {
+    const { emoji, comment } = req.body;
+
+    if (!emoji || !ALLOWED_EMOJIS.includes(emoji)) {
+      return res.status(400).json({ message: "Invalid or missing emoji" });
+    }
+
+    const image = await Image.findById(req.params.id);
+    if (!image) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    if (
+      req.user.role !== "admin" &&
+      !getPeerUsernames().includes(image.uploadedBy)
+    ) {
+      return res.status(403).json({ message: "You can only react to images in your shared pool" });
+    }
+
+    const reaction = {
+      emoji,
+      comment: (comment || "").slice(0, 200),
+      username: req.user.username,
+    };
+
+    image.reactions.push(reaction);
+    await image.save();
+
+    res.status(201).json(image);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to add reaction", error: err.message });
   }
 });
 
